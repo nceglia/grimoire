@@ -1,14 +1,44 @@
 from scipy.stats import entropy
+import statsmodels.formula.api as smf
+import statsmodels.api as sm
 import numpy as np
-import operator
-from scipy.spatial import distance
 import pandas as pd
 import warnings
 import gseapy as gp
 from scipy import sparse
 import scanpy as sc
+import collections
+import tqdm
+import scipy
+
 
 warnings.filterwarnings('ignore')
+
+def entmax_15(values):
+    sorted_values = np.sort(values)[::-1]
+    cumsum_sorted = np.cumsum(sorted_values**2)
+    rho = np.where(sorted_values > (cumsum_sorted - 1) / np.arange(1, len(values) + 1))[0][-1]
+    theta = (cumsum_sorted[rho] - 1) / (rho + 1)
+    probabilities = np.maximum(values - theta, 0)**2
+    probabilities /= np.sum(probabilities)
+    return probabilities
+
+def classify(adata, markers):
+    scores = []
+    for ph, genes in markers.items():
+        sc.tl.score_genes(adata,score_name="{}_SCORE".format(ph),gene_list=genes)
+        scores.append("{}_SCORE".format(ph))
+    mat = adata.obs[scores].to_numpy()
+    cts = []
+    probabs = collections.defaultdict(list)
+    for x in mat:
+        probs = entmax_15(x)
+        for ph, p in zip(scores,probs):
+            probabs[ph.replace("_SCORE"," Pseudo-probability")].append(p)
+        ct = scores[np.argmax(probs)].replace("_SCORE","")
+        cts.append(ct)
+    adata.obs['genevector'] = cts
+    return adata
 
 def score_signatures(adata, markers):
     for sig, genes in markers.items():
@@ -30,20 +60,62 @@ def deg_df(adata, category, adjp_thresh=0.001, lfc_thresh=0.25):
     df = df[df["logfoldchanges"].abs() > lfc_thresh]
     return df
 
-def gene_linear_regression(adata, key, significance=0.001):
+def gene_linear_regression(adata, key, coeff, significance=0.001):
     cts = []
     pvs = []
     genes = []
     coeffs = []
     df = adata.obs.copy()
     key_values = set(adata.ob[key].tolist())
+    key_coeff = key_values.index(coeff)
     for gene in tqdm.tqdm(adata.var.index.tolist()):
         df["Expression"] = adata.X[:,adata.var.index.tolist().index(gene)].T.todense().tolist()[0]
         model = smf.ols('Expression ~ {}'.format(key), data=df).fit()
-        coef = model.params['Timepoint[T.{}]'.format(key_values[-1])]  # Coefficient for the T2 category compared to T1 (base category)
-        p_value = model.pvalues['Timepoint[T.{}]'.format(key_values[-1])]  # P-value for the T2 category compared to T1 (base category)
+        coef = model.params['Timepoint[T.{}]'.format(key_coeff)]  
+        p_value = model.pvalues['Timepoint[T.{}]'.format(key_coeff)]
         coeffs.append(coef)
         pvs.append(p_value)
         genes.append(gene)
-    df = pandas.DataFrame.from_dict({"Gene":genes,"Coefficient":coeffs, "P-value":pvs})
+    df = pd.DataFrame.from_dict({"Gene":genes,"Coefficient":coeffs, "P-value":pvs})
     return df[df["P-value"] < significance]
+
+# def correlation(adata)
+#     mis = []
+#     pids  = []
+#     conds = []
+#     correlation = []
+#     gt = []
+#     for condition in set(adata.obs['subtype']):
+#         fdata = adata[adata.obs["subtype"]==condition]
+#         mat = []
+#         index = []
+#         for ct in tqdm.tqdm(set(fdata.obs['pid'])):
+#             xdata = fdata[fdata.obs["pid"]==ct]
+#             batf = xdata.X[:,xdata.var.index.tolist().index("KLF2")]
+#             ncells = len(xdata.obs.index)
+#             for gene in ["LEF1","SELL","CCR7","TCF7","IL7R","GZMK","LAG3","GZMA","GZMB"]:
+#                 target = xdata.X[:,xdata.var.index.tolist().index(gene.upper())]
+#                 if len(target) == 1: continue
+#                 x = []
+#                 y = []
+#                 for c,z in zip(batf, target):
+#                     if c > 0 or z > 0:
+#                         x.append(c)
+#                         y.append(z)
+#                 pxy, xedges, yedges = numpy.histogram2d(x, y, density=True)
+#                 pxy = pxy / pxy.sum()
+#                 px = np.sum(pxy, axis=1)
+#                 px = px / px.sum()
+#                 py = np.sum(pxy, axis=0)
+#                 py = py / py.sum()
+#                 px_py = px[:, None] * py[None, :]
+#                 nzs = pxy > 0
+#                 mi = np.sum(pxy[nzs] * numpy.log2((pxy[nzs] / px_py[nzs])))
+#                 c = scipy.stats.pearsonr(target,batf)
+#                 mis.append(mi)
+#                 correlation.append(c.statistic)
+#                 conds.append(condition)
+#                 pids.append(ct)
+#                 gt.append(gene)
+#     dfx = pd.DataFrame.from_dict({"Patient":pids,"Condition":conds,"r2":correlation,"MI":mis,"Target":gt})
+#     dfx

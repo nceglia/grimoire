@@ -14,16 +14,13 @@ import scipy
 
 warnings.filterwarnings('ignore')
 
-def entmax_15(values):
-    sorted_values = np.sort(values)[::-1]
-    cumsum_sorted = np.cumsum(sorted_values**2)
-    rho = np.where(sorted_values > (cumsum_sorted - 1) / np.arange(1, len(values) + 1))[0][-1]
-    theta = (cumsum_sorted[rho] - 1) / (rho + 1)
-    probabilities = np.maximum(values - theta, 0)**2
-    probabilities /= np.sum(probabilities)
-    return probabilities
 
-def classify(adata, markers):
+def normalized_exponential_vector(values, temperature=0.000001):
+    assert temperature > 0, "Temperature must be positive"
+    exps = np.exp(values / temperature)
+    return exps / np.sum(exps)
+
+def classify(adata, markers, temperature=0.001):
     scores = []
     for ph, genes in markers.items():
         sc.tl.score_genes(adata,score_name="{}_SCORE".format(ph),gene_list=genes)
@@ -31,12 +28,26 @@ def classify(adata, markers):
     mat = adata.obs[scores].to_numpy()
     cts = []
     probabs = collections.defaultdict(list)
+    found_nan = False
     for x in mat:
-        probs = entmax_15(x)
-        for ph, p in zip(scores,probs):
-            probabs[ph.replace("_SCORE"," Pseudo-probability")].append(p)
-        ct = scores[np.argmax(probs)].replace("_SCORE","")
+        probs = normalized_exponential_vector(x, temperature=temperature)
+        if np.isnan(probs).any():
+            found_nan = True
+            uniform_p = 1. / len(probs)
+            for ph, p in zip(scores,probs):
+                probabs[ph.replace("_SCORE"," Pseudo-probability")].append(uniform_p)
+            ct = scores[0].replace("_SCORE","")
+        else:
+            for ph, p in zip(scores,probs):
+                probabs[ph.replace("_SCORE"," Pseudo-probability")].append(p)
+            ct = scores[np.argmax(probs)].replace("_SCORE","")
         cts.append(ct)
+    if found_nan:
+        message = "Some cells had uniform phenotype probabilities, resulting in a random phenotype classification. You may want to increase the temperature."
+        print(message)
+        warnings.warn(message, RuntimeWarning)
+    for n, p in probabs.items():
+        adata.obs[n] = p
     adata.obs['genevector'] = cts
     return adata
 

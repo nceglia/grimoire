@@ -14,16 +14,13 @@ import scipy
 
 warnings.filterwarnings('ignore')
 
-def entmax_15(values):
-    sorted_values = np.sort(values)[::-1]
-    cumsum_sorted = np.cumsum(sorted_values**2)
-    rho = np.where(sorted_values > (cumsum_sorted - 1) / np.arange(1, len(values) + 1))[0][-1]
-    theta = (cumsum_sorted[rho] - 1) / (rho + 1)
-    probabilities = np.maximum(values - theta, 0)**2
-    probabilities /= np.sum(probabilities)
-    return probabilities
 
-def classify(adata, markers):
+def normalized_exponential_vector(values, temperature=0.01):
+    assert temperature > 0, "Temperature must be positive"
+    exps = np.exp(values / temperature)
+    return exps / np.sum(exps)
+
+def classify(adata, markers, temperature=0.01, load_probability=False, key="phenotype", probability_suffix="Pseudo-probability"):
     scores = []
     for ph, genes in markers.items():
         sc.tl.score_genes(adata,score_name="{}_SCORE".format(ph),gene_list=genes)
@@ -32,12 +29,15 @@ def classify(adata, markers):
     cts = []
     probabs = collections.defaultdict(list)
     for x in mat:
-        probs = entmax_15(x)
+        probs = normalized_exponential_vector(x,temperature=temperature)
         for ph, p in zip(scores,probs):
-            probabs[ph.replace("_SCORE"," Pseudo-probability")].append(p)
+            probabs[ph.replace("_SCORE"," {}".format(probability_suffix))].append(p)
         ct = scores[np.argmax(probs)].replace("_SCORE","")
         cts.append(ct)
-    adata.obs['genevector'] = cts
+    adata.uns["probability_columns"] = list(probabs)
+    for ph, prob in probabs.items():
+        adata.obs[ph] = prob
+    adata.obs[key] = cts
     return adata
 
 def score_signatures(adata, markers):

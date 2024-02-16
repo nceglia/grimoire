@@ -10,10 +10,26 @@ import scanpy as sc
 import collections
 import tqdm
 import scipy
-
+import glob
+import os
 
 warnings.filterwarnings('ignore')
 
+def load_directory(directory, filetype="h5", key="sample"):
+    path = os.path.join(directory,"*.{}".format(filetype))
+    adatas = []
+    samples = []
+    for x in glob.glob(path):
+        if filetype == "h5":
+            adata = sc.read_10x_h5(x)
+        else:
+            adata = sc.read(x)
+        sample = x.replace(".{}".format(filetype),"")
+        adata.var_names_make_unique()
+        samples.append(sample)
+        adatas.append(adata)
+    adata = adatas[0].concatenate(adatas[1:],batch_key=key,batch_categories=samples)
+    return adata
 
 def normalized_exponential_vector(values, temperature=0.000001):
     assert temperature > 0, "Temperature must be positive"

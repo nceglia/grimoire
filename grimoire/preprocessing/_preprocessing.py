@@ -4,9 +4,36 @@ import scanpy.external as sce
 import numpy as np
 import tqdm
 import scanpy.external as sce
+import glob
+import os
+
 
 import warnings
 warnings.filterwarnings('ignore')
+
+def load_directory(directory, filetype="h5", key="sample"):
+    path = os.path.join(directory,"*.{}".format(filetype))
+    adatas = []
+    samples = []
+    for x in glob.glob(path):
+        if filetype == "h5":
+            adata = sc.read_10x_h5(x)
+        else:
+            adata = sc.read(x)
+        sample = x.replace(".{}".format(filetype),"")
+        adata.var_names_make_unique()
+        samples.append(sample)
+        adatas.append(adata)
+    adata = adatas[0].concatenate(adatas[1:],batch_key=key,batch_categories=samples)
+    return adata
+
+def run_pca_workflow(adata):
+    sc.pp.normalize_total(adata)
+    sc.pp.log1p(adata)
+    sc.tl.pca(adata)
+    sc.pp.neighbors(adata)
+    sc.tl.umap(adata)
+    return adata
 
 def remove_meaningless_genes(adata, include_mt=True, include_rp=True, include_mtrn=True, include_hsp=True):
     genes = [x for x in adata.var.index.tolist() if "RIK" not in x.upper()]

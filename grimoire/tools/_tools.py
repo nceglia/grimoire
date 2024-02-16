@@ -11,7 +11,6 @@ import collections
 import tqdm
 import scipy
 
-
 warnings.filterwarnings('ignore')
 
 
@@ -28,6 +27,7 @@ def classify(adata, markers, temperature=0.01, load_probability=False, key="phen
     mat = adata.obs[scores].to_numpy()
     cts = []
     probabs = collections.defaultdict(list)
+    found_nan = False
     for x in mat:
         probs = normalized_exponential_vector(x,temperature=temperature)
         for ph, p in zip(scores,probs):

@@ -8,7 +8,7 @@ import collections
 import operator
 import itertools
 from adjustText import adjust_text
-
+from ..tools._tools import get_expression
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -74,6 +74,27 @@ def knee_plot(adata, umi_cutoff=1500):
     plt.xlim(1, 1e6)
     plt.ylim(1, 1e5)
     plt.axhline(y=umi_cutoff)
+
+def boxplot(adata, key, groupby=None, splitby=None, figsize=(5,4),ax=None, order=None, split_order=None, rotation=0, save=None):
+    df = adata.obs.copy()
+    if key in adata.var.index.tolist():
+        exp = get_expression(adata,key)
+        df[key] = exp
+    if ax == None:
+        fig,ax=plt.subplots(1,1,figsize=figsize)
+    if order == None:
+        order = list(sorted(set(adata.obs[groupby])))
+    if splitby != None:
+        if split_order != None:
+            sns.boxplot(data=df, x=groupby, hue=splitby, y=key,ax=ax, order=order, hue_order=split_order)
+        else:
+            sns.boxplot(data=df, x=groupby, hue=splitby, y=key,ax=ax, order=order)
+    else:
+        sns.boxplot(data=df, x=groupby, y=key,ax=ax)
+    plt.xticks(rotation=rotation)
+    if save != None and ax == None:
+        fig.savefig(save)
+    return ax
 
 def expression_histogram(adata, gene):
     exp = adata.X[:,adata.var.index.tolist().index(gene)].T.todense().tolist()[0]

@@ -27,7 +27,7 @@ def load_directory(directory, filetype="h5", key="sample"):
     adata = adatas[0].concatenate(adatas[1:],batch_key=key,batch_categories=samples)
     return adata
 
-def run_pca_workflow(adata):
+def run_standard_workflow(adata):
     sc.pp.normalize_total(adata)
     sc.pp.log1p(adata)
     sc.tl.pca(adata)
@@ -52,7 +52,7 @@ def remove_meaningless_genes(adata, include_mt=True, include_rp=True, include_mt
     adata = adata[:,genes]
     return adata
 
-def run_harmony(adata,batch_key):
+def run_harmony_workflow(adata,batch_key):
     sc.tl.pca(adata)
     sce.pp.harmony_integrate(adata, batch_key)
     sc.pp.neighbors(adata,use_rep="X_pca_harmony")

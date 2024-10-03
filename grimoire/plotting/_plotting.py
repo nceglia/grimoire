@@ -96,6 +96,7 @@ def boxplot(adata, key, groupby=None, splitby=None, figsize=(5,4),ax=None, order
         fig.savefig(save)
     return ax
 
+
 def expression_histogram(adata, gene):
     exp = adata.X[:,adata.var.index.tolist().index(gene)].T.todense().tolist()[0]
     fig,ax = plt.subplots(1,1,figsize=(6,4))

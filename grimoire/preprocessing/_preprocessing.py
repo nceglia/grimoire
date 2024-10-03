@@ -35,7 +35,7 @@ def run_standard_workflow(adata):
     sc.tl.umap(adata)
     return adata
 
-def remove_meaningless_genes(adata, include_mt=True, include_rp=True, include_mtrn=True, include_hsp=True):
+def remove_meaningless_genes(adata, include_mt=True, include_rp=True, include_mtrn=True, include_hsp=True, include_tcr=False):
     genes = [x for x in adata.var.index.tolist() if "RIK" not in x.upper()]
     genes = [x for x in genes if "GM" not in x]
     genes = [x for x in genes if "-" not in x or "HLA" in x]
@@ -49,6 +49,22 @@ def remove_meaningless_genes(adata, include_mt=True, include_rp=True, include_mt
         genes = [x for x in genes if "MT-" not in x.upper()]
     if include_rp:
         genes = [x for x in genes if "RP" not in x.upper()]
+    if include_tcr:
+        genes = [x for x in genes if "TRAV" not in x]
+        genes = [x for x in genes if "TRAJ" not in x]
+        genes = [x for x in genes if "TRAD" not in x]
+
+        genes = [x for x in genes if "TRBV" not in x]
+        genes = [x for x in genes if "TRBJ" not in x]
+        genes = [x for x in genes if "TRBD" not in x]
+
+        genes = [x for x in genes if "TRGV" not in x]
+        genes = [x for x in genes if "TRGJ" not in x]
+        genes = [x for x in genes if "TRGD" not in x]
+
+        genes = [x for x in genes if "TRDV" not in x]
+        genes = [x for x in genes if "TRDJ" not in x]
+        genes = [x for x in genes if "TRDD" not in x]
     adata = adata[:,genes]
     return adata
 

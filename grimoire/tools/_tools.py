@@ -55,22 +55,3 @@ def deg_df(adata, category, adjp_thresh=0.001, lfc_thresh=0.25):
     df = df[df["pvals_adj"] < adjp_thresh]
     df = df[df["logfoldchanges"].abs() > lfc_thresh]
     return df
-
-# def gene_linear_regression(adata, key, coeff, significance=0.001):
-#     cts = []
-#     pvs = []
-#     genes = []
-#     coeffs = []
-#     df = adata.obs.copy()
-#     key_values = set(adata.ob[key].tolist())
-#     key_coeff = key_values.index(coeff)
-#     for gene in tqdm.tqdm(adata.var.index.tolist()):
-#         df["Expression"] = adata.X[:,adata.var.index.tolist().index(gene)].T.todense().tolist()[0]
-#         model = smf.ols('Expression ~ {}'.format(key), data=df).fit()
-#         coef = model.params['Timepoint[T.{}]'.format(key_coeff)]  
-#         p_value = model.pvalues['Timepoint[T.{}]'.format(key_coeff)]
-#         coeffs.append(coef)
-#         pvs.append(p_value)
-#         genes.append(gene)
-#     df = pd.DataFrame.from_dict({"Gene":genes,"Coefficient":coeffs, "P-value":pvs})
-#     return df[df["P-value"] < significance]

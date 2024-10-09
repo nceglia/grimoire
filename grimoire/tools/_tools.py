@@ -6,9 +6,18 @@ import gseapy as gp
 from scipy import sparse
 import scanpy as sc
 import collections
+import anndata
 
 warnings.filterwarnings('ignore')
 
+def combine_rna_and_cite(rna,prot):
+    mat = np.concatenate([rna.X.todense(),prot.X.todense()],axis=1)
+    ndata = anndata.AnnData(mat)
+    ndata.obs = rna.obs
+    ndata.obsm = rna.obsm
+    genes = rna.var.index.tolist() + ["CITE_" + x for x in  prot.var.index.tolist()]
+    ndata.var.index = genes
+    return ndata.copy()
 
 def normalized_exponential_vector(values, temperature=0.01):
     assert temperature > 0, "Temperature must be positive"
